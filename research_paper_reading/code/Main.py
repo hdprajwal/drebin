@@ -1,7 +1,7 @@
 import psutil
 import argparse
 import logging
-from Classification import SVMClassification, XGBoostClassification
+from Classification import SVMClassification, XGBoostClassification, RFClassification, DTClassification
 logging.basicConfig(level=logging.INFO)
 Logger = logging.getLogger('main.stdout')
 
@@ -18,6 +18,14 @@ def main(args):
         XGBoostClassification(args.maldir, args.gooddir,
                               args.testsize, "tfidf", args.model, args.numfeatforexp)
         Logger.info("XGB Classification Complete")
+    elif args.classifier == "RF":
+        Logger.info("Using Random Forest Classifier")
+        RFClassification(args.maldir, args.gooddir, args.testsize, True, args.model, args.numfeatforexp)
+        Logger.info("RF Classification Complete")
+    elif args.classifier == "DT":
+        Logger.info("Using Decision Tree Classifier")
+        DTClassification(args.maldir, args.gooddir, args.testsize, True, args.model, args.numfeatforexp)
+        Logger.info("DT Classification Complete")
     else:
         Logger.error("Invalid Classifier")
         exit(1)
