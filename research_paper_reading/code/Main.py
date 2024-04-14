@@ -10,21 +10,24 @@ def main(args):
 
     if args.classifier == "SVM":
         Logger.info("Using SVM Classifier")
-        SVMClassification(args.maldir, args.gooddir,
-                          args.testsize, True, args.model, args.numfeatforexp)
+        print(args)
+        SVMClassification(args.model, args.numfeatforexp,
+                          args.oversample, args.split, args.genexplaination)
         Logger.info("SVM Classification Complete")
     elif args.classifier == "XGBoost":
         Logger.info("Using XGBoost Classifier")
-        XGBoostClassification(args.maldir, args.gooddir,
-                              args.testsize, "tfidf", args.model, args.numfeatforexp)
+        XGBoostClassification(args.model, args.numfeatforexp,
+                              args.oversample, args.split, args.genexplaination)
         Logger.info("XGB Classification Complete")
     elif args.classifier == "RF":
         Logger.info("Using Random Forest Classifier")
-        RFClassification(args.maldir, args.gooddir, args.testsize, True, args.model, args.numfeatforexp)
+        RFClassification(args.model, args.numfeatforexp,
+                         args.oversample, args.split, args.genexplaination)
         Logger.info("RF Classification Complete")
     elif args.classifier == "DT":
         Logger.info("Using Decision Tree Classifier")
-        DTClassification(args.maldir, args.gooddir, args.testsize, True, args.model, args.numfeatforexp)
+        DTClassification(args.model, args.numfeatforexp,
+                         args.oversample, args.split, args.genexplaination)
         Logger.info("DT Classification Complete")
     else:
         Logger.error("Invalid Classifier")
@@ -36,12 +39,12 @@ def ParseArgs():
         description="Classification of Android Applications")
     Args.add_argument("--classifier", default="SVM",
                       help="Type of Classifier used to perform Classification ie. SVM, XGBoost")
-    Args.add_argument("--maldir", default="../data/small_proto_apks/malware",
-                      help="Absolute path to directory containing malware apks")
-    Args.add_argument("--gooddir", default="../data/small_proto_apks/goodware",
-                      help="Absolute path to directory containing benign apks")
-    Args.add_argument("--testsize", type=float, default=0.3,
-                      help="Size of the test set when split by Scikit Learn's Train Test Split module")
+    Args.add_argument("--split", default=1,
+                      help="Split of the dataset to use for training and testing")
+    Args.add_argument("--oversample", action=argparse.BooleanOptionalAction, type=bool, default=False,
+                      help="Whether to oversample the minority class")
+    Args.add_argument("--genexplaination", action=argparse.BooleanOptionalAction, type=bool, default=False,
+                      help="Whether to generate explanations for the classification")
     Args.add_argument("--model",
                       help="Absolute path to the saved model file(.pkl extension)")
     Args.add_argument("--numfeatforexp", type=int, default=30,
