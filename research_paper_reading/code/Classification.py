@@ -48,8 +48,12 @@ def GetDatafromSplit(split, good_label, oversample=False):
     Logger.setLevel("INFO")
 
     train_df = pd.read_csv('train_{}.csv'.format(split))
-    test_df = pd.read_csv('test_{}.csv'.format(split))
 
+    train_df["sha256"] = os.path.abspath(
+        "../../../dataset/metadata/feature_vectors/") + "/" + train_df["sha256"]
+    test_df = pd.read_csv('test_{}.csv'.format(split))
+    test_df["sha256"] = os.path.abspath(
+        "../../../dataset/metadata/feature_vectors/") + "/" + test_df["sha256"]
     x_test_samplenames = test_df["sha256"].tolist()
     test_df.loc[test_df["label"] == 0, "label"] = good_label
     y_test = test_df["label"].tolist()
@@ -121,7 +125,7 @@ def SVMClassification(model, numTopFeats, oversample, split, generateExplainatio
 
     # step 3: train the model
     Logger.info("Perform Classification with SVM model")
-    Parameters = {'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+    Parameters = {'C': [0.001, 0.01, 0.1, 1, 10, 100]}
 
     T0 = time.time()
     if not model:
