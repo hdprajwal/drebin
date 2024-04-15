@@ -6,7 +6,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer as TF
 from sklearn.model_selection import GridSearchCV
 from sklearn.svm import LinearSVC
 from sklearn import metrics
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score, precision_score, recall_score
 from xgboost import XGBClassifier, XGBRegressor
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -26,11 +26,35 @@ if not sys.warnoptions:
     warnings.filterwarnings("ignore", category=ConvergenceWarning)
     os.environ["PYTHONWARNINGS"] = "ignore"  # Also affect subprocesses
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 SVM_MODEL_NAME = "SVMModel.pkl"
 XGB_MODEL_NAME = "XGBModel.pkl"
 RF_MODEL_NAME = "RFModel.pkl"
 DT_MODEL_NAME = "DTModel.pkl"
+
+def score_report(y_test, y_pred):
+    '''
+    Plot the confusion matrix for the classification results.
+
+    :param List y_test: list of true labels
+    :param List y_pred: list of predicted labels
+    '''
+    cm = confusion_matrix(y_test, y_pred)
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    fs = f1_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+
+    scores = {
+        "accuracy": accuracy,
+        "precision": precision,
+        "f_score": fs,
+        "recall": recall,
+        "confusion_matrix": cm
+    }
+
+    return scores
+    
 
 
 def GetDatafromSplit(split, good_label, oversample=False):
@@ -45,7 +69,7 @@ def GetDatafromSplit(split, good_label, oversample=False):
     :rtype Tuple: x_train, x_test, y_train, y_test, all_samples
     '''
     Logger = logging.getLogger('GetDatafromSplit.stdout')
-    Logger.setLevel("INFO")
+    # Logger.setLevel("INFO")
 
     train_df = pd.read_csv('train_{}.csv'.format(split))
 
@@ -107,7 +131,7 @@ def SVMClassification(model, numTopFeats, oversample, split, generateExplainatio
     '''
 
     Logger = logging.getLogger('SVMClf.stdout')
-    Logger.setLevel("INFO")
+    # Logger.setLevel("INFO")
 
     # step 2: split all samples to training set and test set
     x_train_samplenames, x_test_samplenames, y_train, y_test, all_samples = GetDatafromSplit(
@@ -136,7 +160,7 @@ def SVMClassification(model, numTopFeats, oversample, split, generateExplainatio
             round(time.time() - T0, 2)))
         BestModel = SVMModels.best_estimator_
         Logger.info("Best model Selected : {}".format(BestModel))
-        print("The training time for random split classification is %s sec." %
+        Logger.info("The training time for random split classification is %s sec." %
               (round(time.time() - T0, 2)))
         dump(Clf, SVM_MODEL_NAME)
     else:
@@ -146,11 +170,11 @@ def SVMClassification(model, numTopFeats, oversample, split, generateExplainatio
     # step 4: Evaluate the best model on test set
     T0 = time.time()
     y_pred = SVMModels.predict(x_test)
-    print("The testing time for random split classification is %s sec." %
+    Logger.info("The testing time for random split classification is %s sec." %
           (round(time.time() - T0, 2)))
     Accuracy = accuracy_score(y_test, y_pred)
-    print("Test Set Accuracy = {}".format(Accuracy))
-    print(classification_report(y_test,
+    Logger.info("Test Set Accuracy = {}".format(Accuracy))
+    Logger.info(classification_report(y_test,
                                 y_pred, labels=[1, -1],
                                 target_names=['Malware', 'Goodware']))
     Report = "Test Set Accuracy = " + str(Accuracy) + "\n" + classification_report(y_test,
@@ -161,7 +185,7 @@ def SVMClassification(model, numTopFeats, oversample, split, generateExplainatio
                                                                                                  'Goodware'])
 
     if generateExplaination == False:
-        return Report
+        return score_report(y_test, y_pred)
     else:
         # pointwise multiplication between weight and feature vect
         w = BestModel.coef_
@@ -175,14 +199,14 @@ def SVMClassification(model, numTopFeats, oversample, split, generateExplainatio
             wv_vocab = list(wv_vocab)
             if y_pred[i] == 1:
                 wv_vocab.sort(reverse=True)
-                # print "pred: {}, org: {}".format(y_pred[i],y_test[i])
-                # pprint(wv_vocab[:10])
+                # Logger.info "pred: {}, org: {}".format(y_pred[i],y_test[i])
+                # pLogger.info(wv_vocab[:10])
                 explanations[os.path.basename(
                     x_test_samplenames[i])]['top_features'] = wv_vocab[:numTopFeats]
             elif y_pred[i] == -1:
                 wv_vocab.sort()
-                # print "pred: {}, org: {}".format(y_pred[i],y_test[i])
-                # pprint(wv_vocab[-10:])
+                # Logger.info "pred: {}, org: {}".format(y_pred[i],y_test[i])
+                # pLogger.info(wv_vocab[-10:])
                 explanations[os.path.basename(
                     x_test_samplenames[i])]['top_features'] = wv_vocab[-numTopFeats:]
             explanations[os.path.basename(
@@ -210,7 +234,7 @@ def XGBoostClassification(model, numTopFeats, oversample, split, generateExplain
     :rtype String Report: result report
     '''
     Logger = logging.getLogger('XGBClf.stdout')
-    Logger.setLevel("INFO")
+    # Logger.setLevel("INFO")
 
     x_train_samplenames, x_test_samplenames, y_train, y_test, all_samples = GetDatafromSplit(
         split=split, good_label=0, oversample=oversample)
@@ -231,7 +255,7 @@ def XGBoostClassification(model, numTopFeats, oversample, split, generateExplain
             round(time.time() - T0, 2)))
         BestModel = xgb.best_estimator_
         Logger.info("Best model Selected : {}".format(BestModel))
-        print("The training time for random split classification is %s sec." %
+        Logger.info("The training time for random split classification is %s sec." %
               (round(time.time() - T0, 2)))
         dump(Clf, XGB_MODEL_NAME)
 
@@ -243,17 +267,17 @@ def XGBoostClassification(model, numTopFeats, oversample, split, generateExplain
     T0 = time.time()
     y_pred = xgb.predict(x_test)
 
-    print("The testing time for random split classification is %s sec." %
+    Logger.info("The testing time for random split classification is %s sec." %
           (round(time.time() - T0, 2)))
     Accuracy = accuracy_score(y_test, y_pred)
-    print("Test Set Accuracy = {}".format(Accuracy))
+    Logger.info("Test Set Accuracy = {}".format(Accuracy))
 
-    print(classification_report(y_test,
+    Logger.info(classification_report(y_test,
                                 y_pred, labels=[1, 0],
                                 target_names=['Malware', 'Goodware']))
 
     if generateExplaination == False:
-        return Report
+        return score_report(y_test, y_pred)
     else:
 
         # pointwise multiplication between weight and feature vect
@@ -299,7 +323,7 @@ def RFClassification(model, numTopFeats, oversample, split, generateExplaination
     '''
 
     Logger = logging.getLogger('RFClf.stdout')
-    Logger.setLevel("INFO")
+    # Logger.setLevel("INFO")
 
     x_train_samplenames, x_test_samplenames, y_train, y_test, all_samples = GetDatafromSplit(
         split=split, good_label=-1, oversample=oversample)
@@ -325,7 +349,7 @@ def RFClassification(model, numTopFeats, oversample, split, generateExplaination
             round(time.time() - T0, 2)))
         BestModel = RFModels.best_estimator_
         Logger.info("Best model Selected : {}".format(BestModel))
-        print("The training time for random split classification is %s sec." %
+        Logger.info("The training time for random split classification is %s sec." %
               (round(time.time() - T0, 2)))
         dump(Clf, RF_MODEL_NAME)
     else:
@@ -335,11 +359,11 @@ def RFClassification(model, numTopFeats, oversample, split, generateExplaination
     # step 4: Evaluate the best model on test set
     T0 = time.time()
     y_pred = RFModels.predict(x_test)
-    print("The testing time for random split classification is %s sec." %
+    Logger.info("The testing time for random split classification is %s sec." %
           (round(time.time() - T0, 2)))
     Accuracy = accuracy_score(y_test, y_pred)
-    print("Test Set Accuracy = {}".format(Accuracy))
-    print(classification_report(y_test,
+    Logger.info("Test Set Accuracy = {}".format(Accuracy))
+    Logger.info(classification_report(y_test,
                                 y_pred, labels=[1, -1],
                                 target_names=['Malware', 'Goodware']))
     Report = "Test Set Accuracy = " + str(Accuracy) + "\n" + classification_report(y_test,
@@ -349,7 +373,7 @@ def RFClassification(model, numTopFeats, oversample, split, generateExplaination
                                                                                    target_names=['Malware',
                                                                                                  'Goodware'])
     if generateExplaination == False:
-        return Report
+        return score_report(y_test, y_pred)
     else:
 
         # pointwise multiplication between weight and feature vect
@@ -364,14 +388,14 @@ def RFClassification(model, numTopFeats, oversample, split, generateExplaination
             wv_vocab = list(wv_vocab)
             if y_pred[i] == 1:
                 wv_vocab.sort(reverse=True)
-                # print "pred: {}, org: {}".format(y_pred[i],y_test[i])
-                # pprint(wv_vocab[:10])
+                # Logger.info "pred: {}, org: {}".format(y_pred[i],y_test[i])
+                # pLogger.info(wv_vocab[:10])
                 explanations[os.path.basename(
                     x_test_samplenames[i])]['top_features'] = wv_vocab[:numTopFeats]
             elif y_pred[i] == -1:
                 wv_vocab.sort()
-                # print "pred: {}, org: {}".format(y_pred[i],y_test[i])
-                # pprint(wv_vocab[-10:])
+                # Logger.info "pred: {}, org: {}".format(y_pred[i],y_test[i])
+                # pLogger.info(wv_vocab[-10:])
                 explanations[os.path.basename(
                     x_test_samplenames[i])]['top_features'] = wv_vocab[-numTopFeats:]
             explanations[os.path.basename(
@@ -400,7 +424,7 @@ def DTClassification(model, numTopFeats, oversample, split, generateExplaination
     '''
 
     Logger = logging.getLogger('DTClf.stdout')
-    Logger.setLevel("INFO")
+    # Logger.setLevel("INFO")
 
     x_train_samplenames, x_test_samplenames, y_train, y_test, all_samples = GetDatafromSplit(
         split=split, good_label=-1, oversample=oversample)
@@ -426,7 +450,7 @@ def DTClassification(model, numTopFeats, oversample, split, generateExplaination
             round(time.time() - T0, 2)))
         BestModel = DTModels.best_estimator_
         Logger.info("Best model Selected : {}".format(BestModel))
-        print("The training time for random split classification is %s sec." %
+        Logger.info("The training time for random split classification is %s sec." %
               (round(time.time() - T0, 2)))
         dump(Clf, DT_MODEL_NAME)
     else:
@@ -436,11 +460,11 @@ def DTClassification(model, numTopFeats, oversample, split, generateExplaination
     # step 4: Evaluate the best model on test set
     T0 = time.time()
     y_pred = DTModels.predict(x_test)
-    print("The testing time for random split classification is %s sec." %
+    Logger.info("The testing time for random split classification is %s sec." %
           (round(time.time() - T0, 2)))
     Accuracy = accuracy_score(y_test, y_pred)
-    print("Test Set Accuracy = {}".format(Accuracy))
-    print(classification_report(y_test,
+    Logger.info("Test Set Accuracy = {}".format(Accuracy))
+    Logger.info(classification_report(y_test,
                                 y_pred, labels=[1, -1],
                                 target_names=['Malware', 'Goodware']))
     Report = "Test Set Accuracy = " + str(Accuracy) + "\n" + classification_report(y_test,
@@ -450,7 +474,7 @@ def DTClassification(model, numTopFeats, oversample, split, generateExplaination
                                                                                    target_names=['Malware',
                                                                                                  'Goodware'])
     if generateExplaination == False:
-        return Report
+        return score_report(y_test, y_pred)
     else:
 
         # pointwise multiplication between weight and feature vect
@@ -465,14 +489,14 @@ def DTClassification(model, numTopFeats, oversample, split, generateExplaination
             wv_vocab = list(wv_vocab)
             if y_pred[i] == 1:
                 wv_vocab.sort(reverse=True)
-                # print "pred: {}, org: {}".format(y_pred[i],y_test[i])
-                # pprint(wv_vocab[:10])
+                # Logger.info "pred: {}, org: {}".format(y_pred[i],y_test[i])
+                # pLogger.info(wv_vocab[:10])
                 explanations[os.path.basename(
                     x_test_samplenames[i])]['top_features'] = wv_vocab[:numTopFeats]
             elif y_pred[i] == -1:
                 wv_vocab.sort()
-                # print "pred: {}, org: {}".format(y_pred[i],y_test[i])
-                # pprint(wv_vocab[-10:])
+                # Logger.info "pred: {}, org: {}".format(y_pred[i],y_test[i])
+                # pLogger.info(wv_vocab[-10:])
                 explanations[os.path.basename(
                     x_test_samplenames[i])]['top_features'] = wv_vocab[-numTopFeats:]
             explanations[os.path.basename(
